@@ -1,0 +1,49 @@
+version: '3.7'
+
+volumes:
+  db:
+    name: wiki-data
+  images:
+    name: wiki-images
+
+networks:
+  proxy:
+    name: proxy
+    external: true
+
+services:
+  wiki:
+    image: mediawiki
+    restart: always
+    volumes:
+      - images:/var/www/html/images
+      # Run the docker and do the installtion, that will send you a LocalSettings.php file
+      # Copy the file here and then uncomment
+      # the following line and 'docker-compose restart wiki' 
+      - ./LocalSettings.php:/var/www/html/LocalSettings.php:ro
+    links:
+      - database
+    labels:
+      caddy: wiki.${DOMAIN}
+      caddy.reverse_proxy: "{{upstreams 80}}"
+      caddy.tls.protocols: "tls1.3"
+    networks:
+      proxy:
+        aliases:
+          - wiki
+      
+  database:
+    image: mariadb
+    restart: always
+    environment:
+      # @see https://phabricator.wikimedia.org/source/mediawiki/browse/master/includes/DefaultSettings.php
+      MYSQL_DATABASE: wiki
+      MYSQL_USER: "${MYSQL_USER}"
+      MYSQL_PASSWORD: "${MYSQL_PASSWORD}"
+      MYSQL_RANDOM_ROOT_PASSWORD: "yes"
+    volumes:
+      - db:/var/lib/mysql
+    networks:
+      proxy:
+        aliases:
+          - database
